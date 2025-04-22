@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  csm :
+    build: .
+    ports:
+      - "8085:80"
+    networks:
+      - csm-network
+   
+networks:
+  csm-network:
+    external: true
+    
