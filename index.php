@@ -3,7 +3,7 @@
 $servername = "my-mysql";
 $username = "root";  // Replace with your MySQL username
 $password = "root";  // Replace with your MySQL password
-$database = "csm";  // Replace with your database name
+$database = "cms";  // Replace with your database name
 
 // Create connection
 $conn = new mysqli($servername, $username, $password, $database);
