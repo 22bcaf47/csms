@@ -1,28 +1,27 @@
 <?php
+// Server configuration
 $servername = "my-mysql";
-$username = "root";       // change if needed
-$password = "root";   // change to your actual MySQL root password
-$database = "cms";    // change to your actual database name
+$username = "root";  // Replace with your MySQL username
+$password = "root";  // Replace with your MySQL password
+$database = "csm";  // Replace with your database name
 
-// Enable exceptions for MySQLi
-mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+// Create connection
+$conn = new mysqli($servername, $username, $password, $database);
 
-try {
-    // Create connection
-    $conn = new mysqli($servername, $username, $password, $database);
-
-    echo "Connected successfully to MySQL on $servername";
-
-    // Example query
-    $sql = "SELECT NOW() AS current_time";
-    $result = $conn->query($sql);
-
-    if ($row = $result->fetch_assoc()) {
-        echo "<br>Server time is: " . $row['current_time'];
-    }
-
-    $conn->close();
-} catch (mysqli_sql_exception $e) {
-    echo "<br><strong>MySQL error:</strong> " . $e->getMessage();
+// Check connection
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
 }
+echo "Connected successfully to the database!";
 ?>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PHP MySQL Connection Test</title>
+</head>
+<body>
+    <h1>Welcome to My PHP App</h1>
+    <p>This page connects to the MySQL server named <strong>my-mysql</strong>.</p>
+</body>
+</html>
