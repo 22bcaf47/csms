@@ -9,7 +9,7 @@ const DB_CONFIG = [
 ];
 
 try {
-    $dsn = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8', DB_CONFIG['host'], DB_CONFIG['port'], DB_CONFIG['dbname']);
+    $dsn = sprintf('mysql:host=%s;dbname=%s;charset=utf8', DB_CONFIG['host'], DB_CONFIG['dbname']);
     $pdo = new PDO($dsn, DB_CONFIG['username'], DB_CONFIG['password'], [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
