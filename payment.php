@@ -8,6 +8,12 @@ const DB_CONFIG = [
     'password' => 'root'
 ];
 
+// Check if PDO MySQL driver is available
+if (!in_array('mysql', PDO::getAvailableDrivers())) {
+    http_response_code(500);
+    exit(json_encode(['error' => 'PDO MySQL driver not found. Please enable or install it.']));
+}
+
 try {
     $dsn = sprintf('mysql:host=%s;dbname=%s;charset=utf8', DB_CONFIG['host'], DB_CONFIG['dbname']);
     $pdo = new PDO($dsn, DB_CONFIG['username'], DB_CONFIG['password'], [
@@ -19,6 +25,9 @@ try {
     http_response_code(500);
     exit(json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]));
 }
+
+$success = null;
+$error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cartData'])) {
     $cart = json_decode($_POST['cartData'], true);
@@ -126,203 +135,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['cartData'])) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment - Cloth Store</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <title>Payment | Cloth Store</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
-        body { 
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            min-height: 100vh; 
-            padding: 2rem; 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: space-between;
-        }
-        header { 
-            background: #1a1a1a; 
-            color: #fff; 
-            padding: 1.5rem; 
-            text-align: center; 
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); 
-        }
-        header h1 { font-size: 2rem; text-transform: uppercase; }
-        .payment-container { 
-            max-width: 600px; 
-            margin: 2rem auto; 
-            background: #fff; 
-            border-radius: 12px; 
-            padding: 2rem; 
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); 
-            text-align: center; 
-        }
-        .payment-container h2 { font-size: 1.8rem; color: #333; margin-bottom: 1.5rem; }
-        .message { font-size: 1.2rem; margin-bottom: 1rem; }
-        .success { color: #28a745; }
-        .error { color: #ff6b6b; }
-        .payment-options { display: flex; gap: 1rem; justify-content: center; margin-bottom: 1.5rem; }
-        .payment-btn { 
-            background: #007bff; 
-            color: #fff; 
-            border: none; 
-            padding: 0.8rem 1.5rem; 
-            border-radius: 25px; 
-            cursor: pointer; 
-            transition: background 0.3s ease; 
-        }
-        .payment-btn.active, .payment-btn:hover { background: #0056b3; }
-        .payment-form { display: flex; flex-direction: column; gap: 1rem; }
-        .payment-form input { 
-            padding: 0.8rem; 
-            border: 1px solid #ddd; 
-            border-radius: 5px; 
-            font-size: 1rem; 
-            width: 100%; 
-        }
-        .payment-form .submit-btn { 
-            background: #28a745; 
-            padding: 1rem; 
-            font-size: 1.1rem; 
-            transition: background 0.3s ease, transform 0.2s ease; 
-        }
-        .payment-form .submit-btn:hover { background: #218838; transform: scale(1.05); }
-        .hidden { display: none; }
-        footer { 
-            background: #1a1a1a; 
-            color: #fff; 
-            text-align: center; 
-            padding: 1.5rem; 
-        }
-        .popup { 
-            position: fixed; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%, -50%); 
-            background: #fff; 
-            padding: 2rem; 
-            border-radius: 10px; 
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3); 
-            text-align: center; 
-            display: none; 
-            z-index: 1000;
-        }
-        .popup.show { display: block; }
+        body { font-family: Arial, sans-serif; background: #f0f0f0; padding: 20px; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px; }
+        h1 { text-align: center; }
+        .success { color: green; }
+        .error { color: red; }
     </style>
 </head>
 <body>
-    <header>
-        <h1>Payment</h1>
-    </header>
+<div class="container">
+    <h1>Payment Page</h1>
 
-    <section class="payment-container">
-        <h2>Complete Your Payment</h2>
-        <?php if (isset($success)): ?>
-            <p class="message success"><?php echo htmlspecialchars($success); ?></p>
-        <?php elseif (isset($error)): ?>
-            <p class="message error"><?php echo htmlspecialchars($error); ?></p>
-        <?php endif; ?>
+    <?php if ($success): ?>
+        <p class="success"><?= htmlspecialchars($success) ?></p>
+    <?php elseif ($error): ?>
+        <p class="error"><?= htmlspecialchars($error) ?></p>
+    <?php endif; ?>
 
-        <div class="payment-options">
-            <button class="payment-btn" data-method="upi">UPI</button>
-            <button class="payment-btn" data-method="card">Card</button>
-            <button class="payment-btn" data-method="cod">Cash on Delivery</button>
-        </div>
+    <form method="POST">
+        <h3>Select Payment Method</h3>
+        <label><input type="radio" name="payment_method" value="upi" required> UPI</label><br>
+        <input type="text" name="upi_id" placeholder="Enter UPI ID"><br><br>
 
-        <form id="paymentForm" class="payment-form" method="POST">
-            <div id="upiFields" class="hidden">
-                <input type="text" name="upi_id" placeholder="Enter UPI ID (e.g., user@upi)" required>
-            </div>
-            <div id="cardFields" class="hidden">
-                <input type="text" name="card_number" placeholder="Card Number (e.g., 1234 5678 9012 3456)" required>
-                <input type="text" name="card_expiry" placeholder="Expiry Date (MM/YY)" required>
-                <input type="text" name="card_cvv" placeholder="CVV (3-4 digits)" required>
-            </div>
-            <input type="hidden" name="payment_method" id="paymentMethod" value="">
-            <button type="submit" class="submit-btn">Pay Now</button>
-        </form>
-    </section>
+        <label><input type="radio" name="payment_method" value="card" required> Card</label><br>
+        <input type="text" name="card_number" placeholder="Card Number"><br>
+        <input type="text" name="card_expiry" placeholder="MM/YY"><br>
+        <input type="text" name="card_cvv" placeholder="CVV"><br><br>
 
-    <footer>
-        <p>© 2025 Cloth Store. All rights reserved.</p>
-    </footer>
+        <label><input type="radio" name="payment_method" value="cod" required> Cash on Delivery</label><br><br>
 
-    <div id="popup" class="popup">
-        <h3>Payment Status</h3>
-        <p id="popupMessage"></p>
-    </div>
-
-    <script>
-        const paymentButtons = document.querySelectorAll('.payment-btn');
-        const paymentForm = document.getElementById('paymentForm');
-        const paymentMethodInput = document.getElementById('paymentMethod');
-        const upiFields = document.getElementById('upiFields');
-        const cardFields = document.getElementById('cardFields');
-        const popup = document.getElementById('popup');
-        const popupMessage = document.getElementById('popupMessage');
-
-        paymentButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                paymentButtons.forEach(btn => btn.classList.remove('active'));
-                button.classList.add('active');
-                const method = button.dataset.method;
-                paymentMethodInput.value = method;
-
-                upiFields.classList.add('hidden');
-                cardFields.classList.add('hidden');
-                upiFields.querySelector('input').required = false;
-                cardFields.querySelectorAll('input').forEach(input => input.required = false);
-
-                if (method === 'upi') {
-                    upiFields.classList.remove('hidden');
-                    upiFields.querySelector('input').required = true;
-                }
-                if (method === 'card') {
-                    cardFields.classList.remove('hidden');
-                    cardFields.querySelectorAll('input').forEach(input => input.required = true);
-                }
-                console.log('Selected payment method:', method);
-            });
-        });
-
-        paymentForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(paymentForm);
-            console.log('Form data:', Object.fromEntries(formData));
-
-            try {
-                const response = await fetch('payment.php', {
-                    method: 'POST',
-                    body: formData
-                });
-                const text = await response.text();
-                console.log('Raw response:', text);
-                const result = JSON.parse(text);
-
-                popupMessage.textContent = result.success || result.error;
-                popup.classList.add('show');
-                if (result.success) {
-                    localStorage.removeItem('cart');
-                    setTimeout(() => {
-                        popup.classList.remove('show');
-                        window.location.href = 'collection.php';
-                    }, 2000);
-                } else {
-                    setTimeout(() => popup.classList.remove('show'), 3000);
-                }
-            } catch (error) {
-                console.error('Fetch error:', error);
-                popupMessage.textContent = 'An error occurred: ' + error.message;
-                popup.classList.add('show');
-                setTimeout(() => popup.classList.remove('show'), 3000);
-            }
-        });
-
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('Page loaded, order_id:', '<?php echo $_SESSION['order_id'] ?? 'none'; ?>');
-            <?php if (isset($success)): ?>
-                localStorage.removeItem('cart');
-            <?php endif; ?>
-        });
-    </script>
+        <button type="submit">Pay Now</button>
+    </form>
+</div>
 </body>
 </html>
