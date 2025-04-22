@@ -6,7 +6,7 @@ pipeline {
     stages {
         stage('Clone') {
             steps {
-                git branch: 'main', url: 'https://github.com/Ryuk38/cms-test.git'
+                git branch: 'main', url: 'https://github.com/22bcaf47/csms.git'
             }
         }
 
