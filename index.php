@@ -4,22 +4,25 @@ $username = "root";       // change if needed
 $password = "root";   // change to your actual MySQL root password
 $database = "cms";    // change to your actual database name
 
-// Create connection
-$conn = new mysqli($servername, $username, $password, $database);
+// Enable exceptions for MySQLi
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+try {
+    // Create connection
+    $conn = new mysqli($servername, $username, $password, $database);
+
+    echo "Connected successfully to MySQL on $servername";
+
+    // Example query
+    $sql = "SELECT NOW() AS current_time";
+    $result = $conn->query($sql);
+
+    if ($row = $result->fetch_assoc()) {
+        echo "<br>Server time is: " . $row['current_time'];
+    }
+
+    $conn->close();
+} catch (mysqli_sql_exception $e) {
+    echo "<br><strong>MySQL error:</strong> " . $e->getMessage();
 }
-echo "Connected successfully to MySQL on $servername";
-
-// Example query (optional)
-$sql = "SELECT NOW() as current_time";
-$result = $conn->query($sql);
-
-if ($result && $row = $result->fetch_assoc()) {
-    echo "<br>Server time is: " . $row['current_time'];
-}
-
-$conn->close();
 ?>
