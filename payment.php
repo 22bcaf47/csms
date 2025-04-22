@@ -2,8 +2,7 @@
 session_start();
 
 const DB_CONFIG = [
-    'host' => 'localhost',
-    'port' => '3307',
+    'host' => 'my-mysql',
     'dbname' => 'cms',
     'username' => 'root',
     'password' => 'root'
