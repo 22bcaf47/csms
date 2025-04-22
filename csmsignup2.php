@@ -7,9 +7,11 @@ $password = "root";
 $dbname = "cms";
 
 $conn = new mysqli($servername, $username, $password, $dbname);
+
+// Check connection
 if ($conn->connect_error) {
     http_response_code(500);
-    exit(json_encode(['error' => 'Database connection failed: ' . $conn->connect_error]));
+    die(json_encode(['error' => 'Database connection failed: ' . $conn->connect_error]));
 }
 
 $success = null;
@@ -35,30 +37,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cartData'])) {
             $orderId = $stmt->insert_id;
             $stmt->close();
 
-            foreach ($cart as $item) {
-                $dressStmt = $conn->prepare("SELECT stock FROM dresses WHERE id = ?");
-                $dressStmt->bind_param("i", $item['id']);
-                $dressStmt->execute();
-                $result = $dressStmt->get_result();
-                $dress = $result->fetch_assoc();
-                $dressStmt->close();
+            $itemStmt = $conn->prepare("INSERT INTO order_items (order_id, dress_id, quantity, price_at_time) VALUES (?, ?, ?, ?)");
+            $itemStmt->bind_param("iiid", $orderId, $dressId, $quantity, $priceAtTime);
 
-                if (!$dress || $dress['stock'] < $item['quantity']) {
-                    throw new Exception("Insufficient stock for dress ID {$item['id']}");
+            foreach ($cart as $item) {
+                $dressId = $item['id'];
+                $quantity = $item['quantity'];
+                $priceAtTime = $item['price'];
+
+                $stockCheck = $conn->prepare("SELECT stock FROM dresses WHERE id = ?");
+                $stockCheck->bind_param("i", $dressId);
+                $stockCheck->execute();
+                $result = $stockCheck->get_result();
+                $dress = $result->fetch_assoc();
+                $stockCheck->close();
+
+                if (!$dress || $dress['stock'] < $quantity) {
+                    throw new Exception("Insufficient stock for dress ID $dressId");
                 }
 
-                $itemStmt = $conn->prepare("INSERT INTO order_items (order_id, dress_id, quantity, price_at_time) VALUES (?, ?, ?, ?)");
-                $itemStmt->bind_param("iiid", $orderId, $item['id'], $item['quantity'], $item['price']);
                 $itemStmt->execute();
-                $itemStmt->close();
 
                 $updateStock = $conn->prepare("UPDATE dresses SET stock = stock - ? WHERE id = ?");
-                $updateStock->bind_param("ii", $item['quantity'], $item['id']);
+                $updateStock->bind_param("ii", $quantity, $dressId);
                 $updateStock->execute();
                 $updateStock->close();
             }
 
+            $itemStmt->close();
             $conn->commit();
+
             $_SESSION['order_id'] = $orderId;
             $success = "Order placed successfully! Select a payment method.";
         } catch (Exception $e) {
@@ -80,36 +88,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['cartData'])) {
         exit(json_encode(['error' => 'No payment method selected']));
     }
 
+    $conn->begin_transaction();
     try {
-        $conn->begin_transaction();
-        $stmt = $conn->prepare(
-            "INSERT INTO payments (order_id, payment_method, upi_id, card_number, card_expiry, card_cvv, payment_status) 
-             VALUES (?, ?, ?, ?, ?, ?, 'completed')"
-        );
-
-        $upi_id = $card_number = $card_expiry = $card_cvv = null;
-
-        switch ($method) {
-            case 'upi':
-                $upi_id = $_POST['upi_id'] ?? '';
-                if (empty($upi_id)) throw new Exception("UPI ID is required");
-                break;
-            case 'card':
-                $card_number = $_POST['card_number'] ?? '';
-                $card_expiry = $_POST['card_expiry'] ?? '';
-                $card_cvv = $_POST['card_cvv'] ?? '';
-                if (empty($card_number) || empty($card_expiry) || empty($card_cvv)) {
-                    throw new Exception("All card details are required");
-                }
-                $card_number = substr($card_number, -4);
-                break;
-            case 'cod':
-                break;
-            default:
-                throw new Exception("Invalid payment method");
+        $upiId = $cardNumber = $cardExpiry = $cardCvv = null;
+        if ($method === 'upi') {
+            $upiId = $_POST['upi_id'] ?? '';
+            if (empty($upiId)) throw new Exception('UPI ID is required');
+        } elseif ($method === 'card') {
+            $cardNumber = $_POST['card_number'] ?? '';
+            $cardExpiry = $_POST['card_expiry'] ?? '';
+            $cardCvv = $_POST['card_cvv'] ?? '';
+            if (empty($cardNumber) || empty($cardExpiry) || empty($cardCvv)) {
+                throw new Exception('All card details are required');
+            }
+            $cardNumber = substr($cardNumber, -4); // store only last 4 digits
+        } elseif ($method !== 'cod') {
+            throw new Exception('Invalid payment method');
         }
 
-        $stmt->bind_param("isssss", $orderId, $method, $upi_id, $card_number, $card_expiry, $card_cvv);
+        $stmt = $conn->prepare("INSERT INTO payments (order_id, payment_method, upi_id, card_number, card_expiry, card_cvv, payment_status) VALUES (?, ?, ?, ?, ?, ?, 'completed')");
+        $stmt->bind_param("isssss", $orderId, $method, $upiId, $cardNumber, $cardExpiry, $cardCvv);
         $stmt->execute();
         $stmt->close();
 
